@@ -1,0 +1,56 @@
+<launch>
+  <!--
+    maze_navigation.launch  –  Master launch file for the Duckietown maze
+                                navigation system.
+
+    Launches all four subsystems:
+      1. maze_path_planner  – Dijkstra shortest-path computation
+      2. maze_localizer     – Fused odometry + AprilTag localisation
+      3. maze_navigator     – Route following + obstacle detection
+      4. maze_controller    – PID lane-keeping and intersection control
+
+    Arguments
+    - - - - -
+    veh          Robot name (default: $VEHICLE_NAME env var)
+    start_node   Start node in the maze graph   (default: S)
+    goal_node    Goal  node in the maze graph   (default: T)
+    v_cruise     Forward cruise speed [0-1]     (default: 0.20)
+    pid_kp/ki/kd PID gains                      (defaults tuned for DB21)
+  -->
+
+  <arg name="veh"        default="$(env VEHICLE_NAME)" />
+  <arg name="start_node" default="S" />
+  <arg name="goal_node"  default="T" />
+  <arg name="v_cruise"   default="0.20" />
+  <arg name="pid_kp"     default="5.0" />
+  <arg name="pid_ki"     default="0.05" />
+  <arg name="pid_kd"     default="0.5" />
+
+  <!-- 1. Path Planner -->
+  <include file="$(find maze_path_planner)/launch/maze_path_planner.launch">
+    <arg name="veh"        value="$(arg veh)" />
+    <arg name="start_node" value="$(arg start_node)" />
+    <arg name="goal_node"  value="$(arg goal_node)" />
+  </include>
+
+  <!-- 2. Localiser -->
+  <include file="$(find maze_localizer)/launch/maze_localizer.launch">
+    <arg name="veh" value="$(arg veh)" />
+  </include>
+
+  <!-- 3. Navigator -->
+  <include file="$(find maze_navigator)/launch/maze_navigator.launch">
+    <arg name="veh"       value="$(arg veh)" />
+    <arg name="goal_node" value="$(arg goal_node)" />
+  </include>
+
+  <!-- 4. Controller -->
+  <include file="$(find maze_controller)/launch/maze_controller.launch">
+    <arg name="veh"      value="$(arg veh)" />
+    <arg name="v_cruise" value="$(arg v_cruise)" />
+    <arg name="pid_kp"   value="$(arg pid_kp)" />
+    <arg name="pid_ki"   value="$(arg pid_ki)" />
+    <arg name="pid_kd"   value="$(arg pid_kd)" />
+  </include>
+
+</launch>

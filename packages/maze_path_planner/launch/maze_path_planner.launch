@@ -1,0 +1,15 @@
+<launch>
+  <!-- Maze Path Planner Node -->
+  <arg name="veh"        default="$(env VEHICLE_NAME)" />
+  <arg name="start_node" default="S" />
+  <arg name="goal_node"  default="T" />
+
+  <node name="maze_path_planner_node"
+        pkg="maze_path_planner"
+        type="maze_path_planner_node.py"
+        output="screen"
+        required="true">
+    <param name="start_node" value="$(arg start_node)" />
+    <param name="goal_node"  value="$(arg goal_node)" />
+  </node>
+</launch>

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>maze_localizer</name>
+  <version>1.0.0</version>
+  <description>
+    Localization for Duckietown maze navigation.
+    Fuses wheel odometry, AprilTag detections and intersection counting
+    to estimate the robot's current node in the maze graph.
+  </description>
+  <maintainer email="student@hhs.nl">Student</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>duckietown_msgs</depend>
+</package>

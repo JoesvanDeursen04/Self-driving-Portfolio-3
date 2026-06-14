@@ -1,0 +1,14 @@
+<launch>
+  <arg name="veh"                 default="$(env VEHICLE_NAME)" />
+  <arg name="goal_node"           default="T" />
+  <arg name="intersection_wait_s" default="1.5" />
+
+  <node name="maze_navigator_node"
+        pkg="maze_navigator"
+        type="maze_navigator_node.py"
+        output="screen">
+    <param name="vehicle_name"        value="$(arg veh)" />
+    <param name="goal_node"           value="$(arg goal_node)" />
+    <param name="intersection_wait_s" value="$(arg intersection_wait_s)" />
+  </node>
+</launch>

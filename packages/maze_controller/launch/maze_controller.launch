@@ -1,0 +1,22 @@
+<launch>
+  <arg name="veh"            default="$(env VEHICLE_NAME)" />
+  <arg name="v_cruise"       default="0.20" />
+  <arg name="v_turn"         default="0.15" />
+  <arg name="pid_kp"         default="5.0" />
+  <arg name="pid_ki"         default="0.05" />
+  <arg name="pid_kd"         default="0.5" />
+  <arg name="turn_duration_s" default="1.8" />
+
+  <node name="maze_controller_node"
+        pkg="maze_controller"
+        type="maze_controller_node.py"
+        output="screen">
+    <param name="vehicle_name"    value="$(arg veh)" />
+    <param name="v_cruise"        value="$(arg v_cruise)" />
+    <param name="v_turn"          value="$(arg v_turn)" />
+    <param name="pid_kp"          value="$(arg pid_kp)" />
+    <param name="pid_ki"          value="$(arg pid_ki)" />
+    <param name="pid_kd"          value="$(arg pid_kd)" />
+    <param name="turn_duration_s" value="$(arg turn_duration_s)" />
+  </node>
+</launch>

@@ -1,0 +1,14 @@
+<launch>
+  <arg name="veh"             default="$(env VEHICLE_NAME)" />
+  <arg name="tile_length_m"   default="0.585" />
+  <arg name="node_arrival_dist" default="0.4" />
+
+  <node name="maze_localizer_node"
+        pkg="maze_localizer"
+        type="maze_localizer_node.py"
+        output="screen">
+    <param name="vehicle_name"      value="$(arg veh)" />
+    <param name="tile_length_m"     value="$(arg tile_length_m)" />
+    <param name="node_arrival_dist" value="$(arg node_arrival_dist)" />
+  </node>
+</launch>

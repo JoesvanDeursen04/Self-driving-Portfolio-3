@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>maze_path_planner</name>
+  <version>1.0.0</version>
+  <description>
+    Graph-based shortest path planner for Duckietown maze navigation.
+    Uses Dijkstra's algorithm to find the optimal route between nodes.
+  </description>
+  <maintainer email="student@hhs.nl">Student</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <exec_depend>python3-yaml</exec_depend>
+</package>

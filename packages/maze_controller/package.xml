@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>maze_controller</name>
+  <version>1.0.0</version>
+  <description>
+    PID feedback controller for Duckietown maze navigation.
+    Keeps the Duckiebot centred in its lane and executes intersection maneuvers.
+  </description>
+  <maintainer email="student@hhs.nl">Student</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>duckietown_msgs</depend>
+</package>

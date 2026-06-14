@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>maze_navigator</name>
+  <version>1.0.0</version>
+  <description>
+    Route-following navigator for Duckietown maze navigation.
+    Reads the planned path, determines the required maneuver at each
+    intersection, and detects / avoids duckie obstacles.
+  </description>
+  <maintainer email="student@hhs.nl">Student</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>duckietown_msgs</depend>
+</package>

@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""
+maze_path_planner_node.py – ROS node for Duckietown maze path planning.
+
+Reads start/goal parameters, runs Dijkstra's algorithm on the maze graph,
+and publishes the planned path as a latched String topic.
+
+Published topics
+----------------
+/maze/path          (std_msgs/String)   JSON-encoded list of node names.
+/maze/maneuvers     (std_msgs/String)   JSON-encoded list of maneuvers.
+
+Parameters
+----------
+~start_node   (str, default 'S')  Start node name.
+~goal_node    (str, default 'T')  Goal node name.
+"""
+
+import json
+import sys
+import os
+
+import rospy
+from std_msgs.msg import String
+
+# Allow importing sibling modules whether run via rosrun or directly
+_DIR = os.path.dirname(os.path.abspath(__file__))
+if _DIR not in sys.path:
+    sys.path.insert(0, _DIR)
+
+from map_definition import MAZE_GRAPH, get_maneuver  # noqa: E402
+from dijkstra import dijkstra                          # noqa: E402
+
+try:
+    from duckietown.dtros import DTROS, NodeType
+    _USE_DTROS = True
+except ImportError:
+    _USE_DTROS = False
+
+
+# ---------------------------------------------------------------------------
+# Node implementation
+# ---------------------------------------------------------------------------
+
+class MazePathPlannerNode(DTROS if _USE_DTROS else object):
+    """Plans and publishes the shortest path through the Duckietown maze."""
+
+    def __init__(self, node_name: str = 'maze_path_planner_node'):
+        if _USE_DTROS:
+            super().__init__(node_name=node_name, node_type=NodeType.PLANNING)
+        else:
+            rospy.init_node(node_name)
+
+        # Parameters
+        self._start = rospy.get_param('~start_node', 'S')
+        self._goal = rospy.get_param('~goal_node', 'T')
+
+        # Publishers (latched so late subscribers still receive the path)
+        self._pub_path = rospy.Publisher(
+            '/maze/path', String, queue_size=1, latch=True)
+        self._pub_maneuvers = rospy.Publisher(
+            '/maze/maneuvers', String, queue_size=1, latch=True)
+
+        rospy.loginfo(f"[PathPlanner] Planning route: {self._start} → {self._goal}")
+        self._plan_and_publish()
+
+    # ------------------------------------------------------------------
+    def _plan_and_publish(self) -> None:
+        path, cost = dijkstra(MAZE_GRAPH, self._start, self._goal)
+
+        if path is None:
+            rospy.logerr(
+                f"[PathPlanner] No path found from '{self._start}' to '{self._goal}'")
+            return
+
+        rospy.loginfo(
+            f"[PathPlanner] Shortest path ({cost:.0f} tiles): {' → '.join(path)}")
+
+        # Build maneuver list for every transition
+        maneuvers = []
+        for i in range(len(path)):
+            prev_node = path[i - 1] if i > 0 else path[0]
+            curr_node = path[i]
+            next_node = path[i + 1] if i < len(path) - 1 else None
+            maneuver = get_maneuver(prev_node, curr_node, next_node)
+            maneuvers.append({'node': curr_node, 'maneuver': maneuver})
+
+        self._pub_path.publish(String(data=json.dumps(path)))
+        self._pub_maneuvers.publish(String(data=json.dumps(maneuvers)))
+
+        rospy.loginfo(f"[PathPlanner] Maneuvers: {maneuvers}")
+
+
+# ---------------------------------------------------------------------------
+if __name__ == '__main__':
+    node = MazePathPlannerNode()
+    rospy.spin()
