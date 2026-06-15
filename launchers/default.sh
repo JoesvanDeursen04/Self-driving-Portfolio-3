@@ -14,6 +14,8 @@ dt-launchfile-init
 # Set vehicle name fallback for DTS usage.
 # Prefer VEHICLE_NAME, then ROBOT_NAME, then HOSTNAME.
 export VEHICLE_NAME=${VEHICLE_NAME:-${ROBOT_NAME:-${HOSTNAME:-duckiebot}}}
+# Prefer an explicitly configured maze file, otherwise use the bundled default.
+export DUCKIE_MAZE_MAP=${DUCKIE_MAZE_MAP:-${DT_REPO_PATH}/assets/maze_map.yaml}
 
 # Launch the full maze navigation stack
 dt-exec roslaunch maze_path_planner maze_navigation.launch \

@@ -29,6 +29,7 @@ De launcher `default.sh` start automatisch:
 - `VEHICLE_NAME`: naam van de robot (bijv. `csc22999`)
 - `START_NODE`: startknoop in de map (default `S`)
 - `GOAL_NODE`: doelknoop in de map (default `T`)
+- `DUCKIE_MAZE_MAP`: pad naar JSON/YAML mapbestand (default `${DT_REPO_PATH}/assets/maze_map.yaml`)
 
 ## Belangrijke dependencies
 
@@ -46,3 +47,27 @@ Plaats het ONNX model op de verwachte locatie in de container:
 Of overschrijf met:
 
 - `DUCKIE_MODEL_PATH=/data/assets/<jouw_model>.onnx`
+
+## Externe doolhofkaart inladen
+
+Als jullie 1 week voor de les een nieuwe grafische maze-layout krijgen, vervang dan:
+
+- `assets/maze_map.yaml`
+
+en build/run opnieuw.
+
+Wil je zonder rebuild wisselen, zet het bestand op de robot en verwijs ernaar met:
+
+- `DUCKIE_MAZE_MAP=/data/assets/maze_map.yaml`
+
+Je kunt starten vanuit:
+
+- `assets/maze_map.example.yaml`
+
+Verwacht formaat:
+
+- `node_positions`: node naar `[x, y]`
+- `graph`: node naar lijst van `[buur_node, kost]`
+
+Bij het opstarten leest `maze_path_planner_node` automatisch dit bestand in.
+Als het bestand ontbreekt of ongeldig is, gebruikt de planner de ingebouwde default map.

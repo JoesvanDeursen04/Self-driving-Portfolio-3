@@ -21,6 +21,7 @@
   <arg name="veh"        default="$(env VEHICLE_NAME)" />
   <arg name="start_node" default="S" />
   <arg name="goal_node"  default="T" />
+  <arg name="map_file"   default="$(optenv DUCKIE_MAZE_MAP /data/assets/maze_map.yaml)" />
   <arg name="v_cruise"   default="0.20" />
   <arg name="pid_kp"     default="5.0" />
   <arg name="pid_ki"     default="0.05" />
@@ -31,6 +32,7 @@
     <arg name="veh"        value="$(arg veh)" />
     <arg name="start_node" value="$(arg start_node)" />
     <arg name="goal_node"  value="$(arg goal_node)" />
+    <arg name="map_file"   value="$(arg map_file)" />
   </include>
 
   <!-- 2. Localiser -->

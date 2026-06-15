@@ -1,37 +1,25 @@
 #!/usr/bin/env python3
 """
-map_definition.py – Duckietown Maze Map
+map_definition.py - Duckietown maze graph and maneuver utilities.
 
-Defines the graph representation of the Duckietown maze.
-
-Map layout (tiles):
-
-    A ── B ── C ── D
-    │              │      │
-    E       F ── G     H
-    │       │       │     │
-    S ── I ── J ── T
-
-Nodes (name -> (col, row) grid position):
-  A(0,0)  B(1,0)  C(2,0)  D(3,0)
-  E(0,1)  F(1,1)  G(2,1)  H(3,1)
-  S(0,2)  I(1,2)  J(2,2)  T(3,2)
-
-Edges (undirected, weight = number of tiles):
-  Top row  : A-B, B-C, C-D
-  Left col : A-E, E-S
-  Right col: D-H, H-T
-  Middle   : F-G
-  Bot row  : S-I, I-J, J-T
-  Verticals: I-F, J-G
-
-Shortest path S→T: S→I→J→T  (cost = 3)
+The planner can load a maze from an external JSON/YAML file.
+If loading fails, it falls back to the defaults defined in this file.
 """
+
+import json
+import os
+from typing import Optional
+
+try:
+    import yaml
+    _HAS_YAML = True
+except ImportError:
+    _HAS_YAML = False
 
 # ---------------------------------------------------------------------------
 # Node positions (for visualization / distance computation if needed)
 # ---------------------------------------------------------------------------
-NODE_POSITIONS = {
+DEFAULT_NODE_POSITIONS = {
     'A': (0, 0), 'B': (1, 0), 'C': (2, 0), 'D': (3, 0),
     'E': (0, 1), 'F': (1, 1), 'G': (2, 1), 'H': (3, 1),
     'S': (0, 2), 'I': (1, 2), 'J': (2, 2), 'T': (3, 2),
@@ -40,7 +28,7 @@ NODE_POSITIONS = {
 # ---------------------------------------------------------------------------
 # Adjacency list: { node: [(neighbour, cost_in_tiles), ...] }
 # ---------------------------------------------------------------------------
-MAZE_GRAPH = {
+DEFAULT_MAZE_GRAPH = {
     'A': [('B', 1), ('E', 1)],
     'B': [('A', 1), ('C', 1)],
     'C': [('B', 1), ('D', 1)],
@@ -62,10 +50,83 @@ MAZE_GRAPH = {
 # Headings: 'N'(north/up), 'S'(south/down), 'E'(east/right), 'W'(west/left)
 # ---------------------------------------------------------------------------
 
-def get_heading(from_node: str, to_node: str) -> str:
+def _validate_map(node_positions: dict, graph: dict) -> bool:
+    """Return True when the map has the required structure."""
+    if not isinstance(node_positions, dict) or not isinstance(graph, dict):
+        return False
+
+    for node, pos in node_positions.items():
+        if not isinstance(node, str):
+            return False
+        if not isinstance(pos, (list, tuple)) or len(pos) != 2:
+            return False
+
+    for node, neighbours in graph.items():
+        if not isinstance(node, str) or node not in node_positions:
+            return False
+        if not isinstance(neighbours, list):
+            return False
+        for entry in neighbours:
+            if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+                return False
+            neighbour, cost = entry
+            if not isinstance(neighbour, str) or neighbour not in node_positions:
+                return False
+            if not isinstance(cost, (int, float)):
+                return False
+
+    return True
+
+
+def _normalize_graph(raw_graph: dict) -> dict:
+    """Accept list-based or dict-based neighbour definitions."""
+    graph = {}
+    for node, neighbours in raw_graph.items():
+        if isinstance(neighbours, dict):
+            graph[node] = [[n, c] for n, c in neighbours.items()]
+        else:
+            graph[node] = neighbours
+    return graph
+
+
+def load_maze_from_file(file_path: Optional[str]):
+    """
+    Load node positions and graph from JSON/YAML.
+
+    Supported schema:
+    - node_positions: {A: [0, 0], B: [1, 0], ...}
+    - graph: {A: [[B, 1], [E, 1]], ...}
+    """
+    if not file_path:
+        return DEFAULT_NODE_POSITIONS, DEFAULT_MAZE_GRAPH
+
+    if not os.path.isfile(file_path):
+        return DEFAULT_NODE_POSITIONS, DEFAULT_MAZE_GRAPH
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            raw = f.read()
+
+        if file_path.endswith(('.yaml', '.yml')) and _HAS_YAML:
+            data = yaml.safe_load(raw)
+        else:
+            data = json.loads(raw)
+
+        node_positions = data.get('node_positions', {})
+        graph = _normalize_graph(data.get('graph', {}))
+
+        if _validate_map(node_positions, graph):
+            return node_positions, graph
+    except Exception:
+        pass
+
+    return DEFAULT_NODE_POSITIONS, DEFAULT_MAZE_GRAPH
+
+
+def get_heading(from_node: str, to_node: str, node_positions: dict) -> str:
     """Return the compass heading when travelling from *from_node* to *to_node*."""
-    fx, fy = NODE_POSITIONS[from_node]
-    tx, ty = NODE_POSITIONS[to_node]
+    fx, fy = node_positions[from_node]
+    tx, ty = node_positions[to_node]
     dx = tx - fx
     dy = ty - fy
     if dx > 0:
@@ -77,7 +138,7 @@ def get_heading(from_node: str, to_node: str) -> str:
     return 'N'
 
 
-def get_maneuver(prev_node: str, curr_node: str, next_node: str) -> str:
+def get_maneuver(prev_node: str, curr_node: str, next_node: str, node_positions: dict) -> str:
     """
     Determine the maneuver needed at *curr_node*.
 
@@ -91,8 +152,8 @@ def get_maneuver(prev_node: str, curr_node: str, next_node: str) -> str:
     if prev_node == curr_node:
         return 'straight'
 
-    arrival_heading = get_heading(prev_node, curr_node)
-    departure_heading = get_heading(curr_node, next_node)
+    arrival_heading = get_heading(prev_node, curr_node, node_positions)
+    departure_heading = get_heading(curr_node, next_node, node_positions)
 
     turn_table = {
         # (arrival, departure) -> maneuver
@@ -110,3 +171,8 @@ def get_maneuver(prev_node: str, curr_node: str, next_node: str) -> str:
         ('S', 'W'): 'right',
     }
     return turn_table.get((arrival_heading, departure_heading), 'straight')
+
+
+# Backwards-compatible names used in other modules.
+NODE_POSITIONS = DEFAULT_NODE_POSITIONS
+MAZE_GRAPH = DEFAULT_MAZE_GRAPH
