@@ -60,10 +60,6 @@ Wil je zonder rebuild wisselen, zet het bestand op de robot en verwijs ernaar me
 
 - `DUCKIE_MAZE_MAP=/data/assets/maze_map.yaml`
 
-Je kunt starten vanuit:
-
-- `assets/maze_map.example.yaml`
-
 Verwacht formaat:
 
 - `node_positions`: node naar `[x, y]`

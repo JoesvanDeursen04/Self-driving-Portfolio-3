@@ -1,5 +1,5 @@
-Duckietown Module: REPOSITORY_NAME_HERE
-=======================================
+Duckietown Module: Self-driving-Portfolio-3
+===========================================
 
 .. toctree::
    :glob:

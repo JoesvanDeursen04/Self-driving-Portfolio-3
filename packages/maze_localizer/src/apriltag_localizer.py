@@ -16,6 +16,7 @@ DEFAULT_TAG_MAP constant below.
 """
 
 import rospy
+from typing import Optional
 
 try:
     from duckietown_msgs.msg import AprilTagDetectionArray
@@ -53,7 +54,7 @@ class AprilTagLocalizer:
 
     def __init__(self, vehicle_name: str = 'duckiebot', tag_map: dict = None):
         self._tag_map: dict = tag_map or DEFAULT_TAG_MAP
-        self.last_known_node: str | None = None
+        self.last_known_node: Optional[str] = None
         self._detection_callback = None   # optional external callback
 
         if _HAS_DT_MSGS:
