@@ -1,47 +1,48 @@
-# Template: template-basic
+# Duckietown Maze Navigation
 
-This template provides a boilerplate repository for developing non-ROS software
-in Duckietown.
+Deze repository bevat een complete ROS-stack voor maze-navigatie op een Duckiebot:
 
-**NOTE:** If you want to develop software that uses ROS, check out
-[this template](https://github.com/duckietown/template-ros).
+1. Path planning (Dijkstra)
+2. Localisatie (odometrie + AprilTag)
+3. Navigatie/maneuvers
+4. PID lane controller
 
+De standaard launcher start automatisch de volledige stack.
 
-## How to use it
+## Snel starten via dts terminal
 
-### 1. Fork this repository
+Werk vanuit de root van deze repository.
 
-Use the fork button in the top-right corner of the github page to fork this template repository.
+1. Build de module image.
+2. Run de module op de Duckiebot.
 
+Gebruik in de praktijk je normale dts build/run workflow (zoals in de les gebruikt).
+De launcher `default.sh` start automatisch:
 
-### 2. Create a new repository
+- `maze_path_planner/launch/maze_navigation.launch`
+- met `start_node` uit `START_NODE` (default `S`)
+- met `goal_node` uit `GOAL_NODE` (default `T`)
+- met `veh` uit `VEHICLE_NAME` of fallback naar `ROBOT_NAME`/`HOSTNAME`
 
-Create a new repository on github.com while
-specifying the newly forked template repository as
-a template for your new repository.
+## Omgevingsvariabelen
 
+- `VEHICLE_NAME`: naam van de robot (bijv. `csc22999`)
+- `START_NODE`: startknoop in de map (default `S`)
+- `GOAL_NODE`: doelknoop in de map (default `T`)
 
-### 3. Define dependencies
+## Belangrijke dependencies
 
-List the dependencies in the files `dependencies-apt.txt` and
-`dependencies-py3.txt` (apt packages and pip packages respectively).
+Deze zijn al toegevoegd in de repository:
 
+- Python: `numpy`, `opencv-python-headless`
+- APT: `ros-noetic-cv-bridge`
 
-### 4. Place your code
+## Assets
 
-Place your code in the directory `/packages/` of
-your new repository.
+Plaats het ONNX model op de verwachte locatie in de container:
 
+- `/data/assets/best.onnx`
 
-### 5. Setup launchers
+Of overschrijf met:
 
-The directory `/launchers` can contain as many launchers (launching scripts)
-as you want. A default launcher called `default.sh` must always be present.
-
-If you create an executable script (i.e., a file with a valid shebang statement)
-a launcher will be created for it. For example, the script file 
-`/launchers/my-launcher.sh` will be available inside the Docker image as the binary
-`dt-launcher-my-launcher`.
-
-When launching a new container, you can simply provide `dt-launcher-my-launcher` as
-command.
+- `DUCKIE_MODEL_PATH=/data/assets/<jouw_model>.onnx`

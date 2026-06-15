@@ -11,8 +11,9 @@ dt-launchfile-init
 # NOTE: Use the variable DT_REPO_PATH to know the absolute path to your code
 # NOTE: Use `dt-exec COMMAND` to run the main process (blocking process)
 
-# Set vehicle name fallback
-export VEHICLE_NAME=${VEHICLE_NAME:-duckiebot}
+# Set vehicle name fallback for DTS usage.
+# Prefer VEHICLE_NAME, then ROBOT_NAME, then HOSTNAME.
+export VEHICLE_NAME=${VEHICLE_NAME:-${ROBOT_NAME:-${HOSTNAME:-duckiebot}}}
 
 # Launch the full maze navigation stack
 dt-exec roslaunch maze_path_planner maze_navigation.launch \
