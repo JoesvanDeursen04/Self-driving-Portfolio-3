@@ -8,6 +8,7 @@ and publishes the planned path as a latched String topic.
 Published topics
 ----------------
 /maze/path          (std_msgs/String)   JSON-encoded list of node names.
+/maze/path_costs    (std_msgs/String)   JSON-encoded list of segment costs.
 /maze/maneuvers     (std_msgs/String)   JSON-encoded list of maneuvers.
 
 Parameters
@@ -64,6 +65,8 @@ class MazePathPlannerNode(DTROS if _USE_DTROS else object):
         # Publishers (latched so late subscribers still receive the path)
         self._pub_path = rospy.Publisher(
             '/maze/path', String, queue_size=1, latch=True)
+        self._pub_path_costs = rospy.Publisher(
+            '/maze/path_costs', String, queue_size=1, latch=True)
         self._pub_maneuvers = rospy.Publisher(
             '/maze/maneuvers', String, queue_size=1, latch=True)
 
@@ -83,6 +86,12 @@ class MazePathPlannerNode(DTROS if _USE_DTROS else object):
         rospy.loginfo(
             f"[PathPlanner] Shortest path ({cost:.0f} tiles): {' → '.join(path)}")
 
+        segment_costs = []
+        for i in range(len(path) - 1):
+            segment_costs.append(
+                self._get_edge_cost(path[i], path[i + 1])
+            )
+
         # Build maneuver list for every transition
         maneuvers = []
         for i in range(len(path)):
@@ -93,9 +102,18 @@ class MazePathPlannerNode(DTROS if _USE_DTROS else object):
             maneuvers.append({'node': curr_node, 'maneuver': maneuver})
 
         self._pub_path.publish(String(data=json.dumps(path)))
+        self._pub_path_costs.publish(String(data=json.dumps(segment_costs)))
         self._pub_maneuvers.publish(String(data=json.dumps(maneuvers)))
 
         rospy.loginfo(f"[PathPlanner] Maneuvers: {maneuvers}")
+        rospy.loginfo(f"[PathPlanner] Segment costs: {segment_costs}")
+
+    def _get_edge_cost(self, from_node: str, to_node: str) -> float:
+        """Return tile-cost for one path segment, falling back to 1.0."""
+        for neighbour, edge_cost in self._maze_graph.get(from_node, []):
+            if neighbour == to_node:
+                return float(edge_cost)
+        return 1.0
 
 
 # ---------------------------------------------------------------------------

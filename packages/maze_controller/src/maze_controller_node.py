@@ -36,6 +36,7 @@ Parameters
 ~pid_ki            (float, default 0.05)  PID integral gain
 ~pid_kd            (float, default 0.5)   PID derivative gain
 ~turn_duration_s   (float, default 1.8)   Duration of a left/right turn
+~straight_duration_s (float, default 1.0) Duration of open-loop straight crossing
 ~lane_timeout_s    (float, default 0.25)  Max age of lane data before stopping
 """
 
@@ -82,6 +83,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         self._v_cruise = rospy.get_param('~v_cruise', 0.20)
         self._v_turn = rospy.get_param('~v_turn', 0.15)
         self._turn_duration = rospy.get_param('~turn_duration_s', 1.8)
+        self._straight_duration = rospy.get_param('~straight_duration_s', 1.0)
         self._lane_timeout = rospy.get_param('~lane_timeout_s', 0.25)
 
         # PID setup
@@ -152,19 +154,31 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
 
     def _cb_nav_command(self, msg: String) -> None:
         new_cmd = msg.data
-        if new_cmd in ('left', 'right') and not self._turning:
-            # Start timed turn
+        if new_cmd == 'stop':
+            self._turning = False
+            self._nav_command = 'stop'
+            self._pid.reset()
+            self._last_pid_time = 0.0
+            return
+
+        if new_cmd in ('left', 'right', 'straight') and not self._turning:
+            # Start timed open-loop intersection maneuver
             self._turning = True
             self._turn_direction = new_cmd
-            self._turn_end_time = rospy.get_time() + self._turn_duration
+            duration = self._straight_duration if new_cmd == 'straight' else self._turn_duration
+            self._turn_end_time = rospy.get_time() + duration
             self._pid.reset()
-            rospy.loginfo(f'[Controller] Starting {new_cmd} turn.')
-        elif new_cmd not in ('left', 'right'):
+            self._last_pid_time = 0.0
+            rospy.loginfo(f'[Controller] Starting {new_cmd} maneuver.')
+            return
+
+        if self._turning:
+            return
+
+        if new_cmd not in ('left', 'right', 'straight'):
             self._nav_command = new_cmd
             if new_cmd == 'go':
                 pass  # no state change needed
-            elif new_cmd == 'stop':
-                self._pid.reset()
 
     # ------------------------------------------------------------------
     # Control loop
@@ -179,7 +193,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
                 self._nav_command = 'go'
                 self._pid.reset()
                 self._last_pid_time = 0.0
-                rospy.loginfo('[Controller] Turn complete – resuming lane following.')
+                rospy.loginfo('[Controller] Maneuver complete – resuming lane following.')
             else:
                 self._execute_turn(self._turn_direction)
                 return

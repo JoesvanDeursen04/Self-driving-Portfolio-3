@@ -13,6 +13,7 @@ robot's current position within the maze graph:
 Subscribed topics
 -----------------
 /maze/path              (std_msgs/String)    Planned path (JSON list of nodes).
+/maze/path_costs        (std_msgs/String)    Segment costs (JSON list of floats).
 
 Published topics
 ----------------
@@ -64,6 +65,7 @@ class MazeLocalizerNode(DTROS if _USE_DTROS else object):
 
         # State
         self._path: list = []
+        self._path_costs: list = []
         self._path_index: int = 0   # index of current node in _path
 
         # Sub-systems
@@ -81,6 +83,7 @@ class MazeLocalizerNode(DTROS if _USE_DTROS else object):
 
         # Subscriber
         rospy.Subscriber('/maze/path', String, self._cb_path, queue_size=1)
+        rospy.Subscriber('/maze/path_costs', String, self._cb_path_costs, queue_size=1)
 
         # Timer: poll odometry at 10 Hz as a backup when no AprilTag is visible
         self._timer = rospy.Timer(rospy.Duration(0.1), self._odometry_tick)
@@ -92,23 +95,47 @@ class MazeLocalizerNode(DTROS if _USE_DTROS else object):
     # ------------------------------------------------------------------
     def _cb_path(self, msg: String) -> None:
         self._path = json.loads(msg.data)
+        self._path_costs = []
         self._path_index = 0
+        self._odometry.reset()
         rospy.loginfo(f'[Localizer] Received path: {self._path}')
         self._publish_state()
+
+    def _cb_path_costs(self, msg: String) -> None:
+        try:
+            parsed = json.loads(msg.data)
+            self._path_costs = [float(x) for x in parsed]
+        except (ValueError, TypeError):
+            self._path_costs = []
+            rospy.logwarn('[Localizer] Invalid /maze/path_costs payload; using default cost 1.0.')
 
     def _on_apriltag_detected(self, node_name: str) -> None:
         """High-priority update: robot is at *node_name* (AprilTag detected)."""
         if not self._path:
             return
-        if node_name in self._path:
-            new_index = self._path.index(node_name)
-            if new_index != self._path_index:
-                rospy.loginfo(
-                    f'[Localizer] AprilTag: moved from '
-                    f'{self._path[self._path_index]} to {node_name}')
-                self._path_index = new_index
-                self._odometry.reset()
-                self._publish_state()
+
+        current_node = self._path[self._path_index]
+        next_index = self._path_index + 1
+        next_node = self._path[next_index] if next_index < len(self._path) else None
+
+        if node_name == current_node:
+            # Refresh odometry reference when we positively re-observe current node.
+            self._odometry.reset()
+            return
+
+        if next_node is not None and node_name == next_node:
+            rospy.loginfo(
+                f'[Localizer] AprilTag: moved from '
+                f'{current_node} to {node_name}')
+            self._path_index = next_index
+            self._odometry.reset()
+            self._publish_state()
+            return
+
+        rospy.logwarn_throttle(
+            2.0,
+            f'[Localizer] Ignoring out-of-sequence AprilTag {node_name}; '
+            f'expected {current_node} or {next_node}.')
 
     def _odometry_tick(self, _event) -> None:
         """
@@ -121,12 +148,21 @@ class MazeLocalizerNode(DTROS if _USE_DTROS else object):
             return  # already at goal
 
         dist = self._odometry.distance_since_reset()
-        if dist >= self._arrival_dist:
+        segment_cost = self._current_segment_cost()
+        required_dist = self._arrival_dist * segment_cost
+        if dist >= required_dist:
             self._path_index = min(self._path_index + 1, len(self._path) - 1)
             self._odometry.reset()
             rospy.loginfo(
-                f'[Localizer] Odometry: advanced to {self._path[self._path_index]}')
+                f'[Localizer] Odometry: advanced to {self._path[self._path_index]} '
+                f'(dist={dist:.3f}m, required={required_dist:.3f}m, cost={segment_cost:.2f}).')
             self._publish_state()
+
+    def _current_segment_cost(self) -> float:
+        """Return cost in tiles for current path segment, defaulting to 1.0."""
+        if 0 <= self._path_index < len(self._path_costs):
+            return max(1.0, self._path_costs[self._path_index])
+        return 1.0
 
     # ------------------------------------------------------------------
     def _publish_state(self) -> None:

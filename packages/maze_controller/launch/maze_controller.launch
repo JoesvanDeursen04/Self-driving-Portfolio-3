@@ -6,6 +6,8 @@
   <arg name="pid_ki"         default="0.05" />
   <arg name="pid_kd"         default="0.5" />
   <arg name="turn_duration_s" default="1.8" />
+  <arg name="straight_duration_s" default="1.0" />
+  <arg name="lane_timeout_s" default="0.25" />
 
   <node name="maze_controller_node"
         pkg="maze_controller"
@@ -18,5 +20,7 @@
     <param name="pid_ki"          value="$(arg pid_ki)" />
     <param name="pid_kd"          value="$(arg pid_kd)" />
     <param name="turn_duration_s" value="$(arg turn_duration_s)" />
+    <param name="straight_duration_s" value="$(arg straight_duration_s)" />
+    <param name="lane_timeout_s" value="$(arg lane_timeout_s)" />
   </node>
 </launch>
