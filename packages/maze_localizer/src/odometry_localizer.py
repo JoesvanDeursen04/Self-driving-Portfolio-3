@@ -41,6 +41,8 @@ class OdometryLocalizer:
         self._right_ticks: int = 0
         self._prev_left: int = 0
         self._prev_right: int = 0
+        self._first_left_tick: bool = True
+        self._first_right_tick: bool = True
         self._distance: float = 0.0   # metres since last reset
         self._heading: float = 0.0    # radians (cumulative)
 
@@ -65,12 +67,22 @@ class OdometryLocalizer:
     # Encoder callbacks
     # ------------------------------------------------------------------
     def _cb_left(self, msg) -> None:
+        if self._first_left_tick:
+            self._prev_left = msg.data
+            self._first_left_tick = False
+            return
+
         delta = msg.data - self._prev_left
         self._prev_left = msg.data
         self._left_ticks += delta
         self._integrate(delta, 0)
 
     def _cb_right(self, msg) -> None:
+        if self._first_right_tick:
+            self._prev_right = msg.data
+            self._first_right_tick = False
+            return
+
         delta = msg.data - self._prev_right
         self._prev_right = msg.data
         self._right_ticks += delta

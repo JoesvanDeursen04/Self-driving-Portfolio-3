@@ -138,10 +138,15 @@ class ObstacleDetector:
 
         # Forward pass
         outputs = self._net.forward()
+        predictions, transposed_from_attr_first = self._prepare_predictions(outputs)
+        if predictions is None or predictions.shape[1] < 5:
+            rospy.logwarn_throttle(
+                5.0,
+                '[ObstacleDetector] Unexpected ONNX output shape; skipping frame.')
+            return False
 
-        # outputs shape: (1, num_predictions, 5 + num_classes)
-        # Each row: [cx, cy, w, h, obj_conf, cls_conf0, cls_conf1, ...]
-        predictions = outputs[0]  # shape (num_pred, 5+C)
+        has_objectness = self._infer_has_objectness(
+            predictions.shape[1], transposed_from_attr_first)
 
         close_threshold_y = h * (1.0 - CLOSE_REGION_FRACTION)
 
@@ -150,11 +155,18 @@ class ObstacleDetector:
         sy = h / MODEL_INPUT_SIZE
 
         for pred in predictions:
-            obj_conf = float(pred[4])
-            if obj_conf < CONF_THRESHOLD:
+            if has_objectness:
+                obj_conf = float(pred[4])
+                if obj_conf < CONF_THRESHOLD:
+                    continue
+                cls_scores = pred[5:]
+            else:
+                obj_conf = 1.0
+                cls_scores = pred[4:]
+
+            if cls_scores.size == 0:
                 continue
 
-            cls_scores = pred[5:]
             class_id = int(np.argmax(cls_scores))
             confidence = obj_conf * float(cls_scores[class_id])
 
@@ -173,6 +185,48 @@ class ObstacleDetector:
                 return True
 
         return False
+
+    @staticmethod
+    def _prepare_predictions(outputs):
+        """
+        Normalise ONNX outputs to shape (num_predictions, num_attributes).
+
+        Supports common layouts:
+          - YOLOv5: (1, N, 5+C) or (N, 5+C)
+          - YOLOv8/v11: (1, 4+C, N) which needs transpose
+        """
+        arr = outputs[0] if isinstance(outputs, (list, tuple)) else outputs
+        arr = np.array(arr)
+
+        transposed_from_attr_first = False
+
+        if arr.ndim == 3 and arr.shape[0] == 1:
+            arr = arr[0]
+
+        if arr.ndim == 2:
+            # Heuristic: (attrs, N) has small attrs and large N.
+            if arr.shape[0] <= 128 and arr.shape[0] < arr.shape[1]:
+                arr = arr.T
+                transposed_from_attr_first = True
+            return arr, transposed_from_attr_first
+
+        return None, False
+
+    @staticmethod
+    def _infer_has_objectness(num_attributes: int, transposed_from_attr_first: bool) -> bool:
+        """Infer whether the prediction row contains an objectness slot at index 4."""
+        # Common known YOLO shapes.
+        if num_attributes in (5, 84):
+            return False
+        if num_attributes in (6, 85):
+            return True
+
+        # Exporters that emit (1, attrs, N) are typically YOLOv8/v11 style.
+        if transposed_from_attr_first:
+            return False
+
+        # Safe default for older YOLOv5-style exports.
+        return True
 
     # ------------------------------------------------------------------
     # HSV fallback

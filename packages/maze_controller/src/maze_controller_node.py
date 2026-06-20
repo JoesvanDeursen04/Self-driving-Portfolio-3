@@ -204,10 +204,12 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         Right turn: fast left wheel, slow right wheel.
         """
         v = self._v_turn
+        v_slow = min(MAX_WHEEL_SPEED, v * 0.35)
+        v_fast = min(MAX_WHEEL_SPEED, v * 1.2)
         if direction == 'left':
-            self._send_wheel_cmd(v * 0.1, v)
+            self._send_wheel_cmd(v_slow, v_fast)
         elif direction == 'right':
-            self._send_wheel_cmd(v, v * 0.1)
+            self._send_wheel_cmd(v_fast, v_slow)
         else:
             self._send_wheel_cmd(v, v)
 

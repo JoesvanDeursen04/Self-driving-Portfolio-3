@@ -24,7 +24,7 @@ Parameters
 ----------
 ~vehicle_name       (str,   default 'duckiebot')
 ~tile_length_m      (float, default 0.585)    Physical tile size in metres.
-~node_arrival_dist  (float, default 0.4)      Distance (m) threshold to
+~node_arrival_dist  (float, default 0.54)     Distance (m) threshold to
                                                declare a node reached via odometry.
 """
 
@@ -60,7 +60,7 @@ class MazeLocalizerNode(DTROS if _USE_DTROS else object):
         # Parameters
         self._vehicle = rospy.get_param('~vehicle_name', 'duckiebot')
         self._tile_length = rospy.get_param('~tile_length_m', 0.585)
-        self._arrival_dist = rospy.get_param('~node_arrival_dist', 0.4)
+        self._arrival_dist = rospy.get_param('~node_arrival_dist', 0.54)
 
         # State
         self._path: list = []

@@ -41,10 +41,6 @@ DEFAULT_TAG_MAP = {
     12: 'T',   # Goal
 }
 
-# Minimum detection confidence (tag area in pixels) to accept a detection
-MIN_TAG_AREA_PX = 800
-
-
 class AprilTagLocalizer:
     """
     Listens for AprilTag detections and maps them to maze node names.
@@ -71,15 +67,15 @@ class AprilTagLocalizer:
     # ------------------------------------------------------------------
     def _cb_detections(self, msg) -> None:
         best_node = None
-        best_area = 0.0
+        best_z = float('inf')
 
         for detection in msg.detections:
             tag_id = detection.tag_id
-            # Use the larger of the two image dimension products as a proxy
-            # for detection confidence / proximity.
-            area = detection.tag_size  # metres at detected distance
-            if tag_id in self._tag_map and area > best_area:
-                best_area = area
+            z_dist = self._extract_z_distance(detection)
+            if z_dist is None:
+                continue
+            if tag_id in self._tag_map and z_dist < best_z:
+                best_z = z_dist
                 best_node = self._tag_map[tag_id]
 
         if best_node is not None:
@@ -88,6 +84,31 @@ class AprilTagLocalizer:
             self.last_known_node = best_node
             if callable(self._detection_callback):
                 self._detection_callback(best_node)
+
+    def _extract_z_distance(self, detection) -> Optional[float]:
+        """
+        Return camera-to-tag Z distance in metres, or None when unavailable.
+
+        Different AprilTag message definitions expose pose fields slightly
+        differently, so we probe common layouts defensively.
+        """
+        try:
+            z_val = float(detection.transform.translation.z)
+            return z_val if z_val > 0.0 else None
+        except (AttributeError, TypeError, ValueError):
+            pass
+
+        try:
+            z_val = float(detection.pose.pose.position.z)
+            return z_val if z_val > 0.0 else None
+        except (AttributeError, TypeError, ValueError):
+            pass
+
+        try:
+            z_val = float(detection.pose.position.z)
+            return z_val if z_val > 0.0 else None
+        except (AttributeError, TypeError, ValueError):
+            return None
 
     # ------------------------------------------------------------------
     def register_callback(self, fn) -> None:
