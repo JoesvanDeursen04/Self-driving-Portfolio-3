@@ -193,7 +193,13 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
                 self._nav_command = 'go'
                 self._pid.reset()
                 self._last_pid_time = 0.0
+                # Prime a neutral forward command so we never reuse stale
+                # pre-maneuver steering values on the first cycle after turning.
+                self._last_lane_cmd = (self._v_cruise, self._v_cruise)
+                self._last_lane_pose_time = now
+                self._send_wheel_cmd(*self._last_lane_cmd)
                 rospy.loginfo('[Controller] Maneuver complete – resuming lane following.')
+                return
             else:
                 self._execute_turn(self._turn_direction)
                 return

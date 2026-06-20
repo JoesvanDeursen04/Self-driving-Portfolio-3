@@ -63,7 +63,9 @@ class MazeNavigatorNode(DTROS if _USE_DTROS else object):
         # State
         self._maneuvers: list = []          # [{node, maneuver}, ...]
         self._current_node: str = ''
-        self._prev_node: str = ''
+        self._active_maneuver_node: str = ''
+        self._active_maneuver_cmd: str = ''
+        self._active_expected_next: str = ''
         self._goal_reached: bool = False
         self._last_command: str = 'stop'
 
@@ -96,7 +98,15 @@ class MazeNavigatorNode(DTROS if _USE_DTROS else object):
         new_node = msg.data
         if new_node != self._current_node:
             rospy.loginfo(f'[Navigator] Now at node: {new_node}')
-            self._prev_node = self._current_node
+
+            if self._active_maneuver_cmd and new_node == self._active_expected_next:
+                rospy.loginfo(
+                    f'[Navigator] Maneuver {self._active_maneuver_cmd} completed: '
+                    f'{self._active_maneuver_node} -> {new_node}')
+                self._active_maneuver_node = ''
+                self._active_maneuver_cmd = ''
+                self._active_expected_next = ''
+
         self._current_node = new_node
 
         # Check for goal
@@ -127,19 +137,43 @@ class MazeNavigatorNode(DTROS if _USE_DTROS else object):
         if maneuver == 'stop':
             self._publish_command('stop')
         elif maneuver in ('left', 'right', 'straight'):
-            # Keep publishing the maneuver while we remain on this node.
-            # This avoids single-packet command loss on noisy Wi-Fi.
-            if self._current_node != self._prev_node and self._last_command != maneuver:
+            expected_next = self._get_next_node_for(self._current_node)
+
+            if (
+                self._active_maneuver_node != self._current_node
+                or self._active_maneuver_cmd != maneuver
+            ):
+                self._active_maneuver_node = self._current_node
+                self._active_maneuver_cmd = maneuver
+                self._active_expected_next = expected_next
                 rospy.loginfo(f'[Navigator] Intersection at {self._current_node}: {maneuver}')
+
+            # Keep publishing until the localisation reports that we reached
+            # the expected next node on the path.
             self._publish_command(maneuver)
         else:
             self._publish_command('go')
+
+            # If we have moved away from a maneuver node without matching the
+            # expected next node, clear stale state and continue safely.
+            if self._active_maneuver_cmd and self._current_node != self._active_maneuver_node:
+                self._active_maneuver_node = ''
+                self._active_maneuver_cmd = ''
+                self._active_expected_next = ''
 
     def _get_maneuver_for(self, node: str) -> str:
         for entry in self._maneuvers:
             if entry.get('node') == node:
                 return entry.get('maneuver', 'straight')
         return 'go'
+
+    def _get_next_node_for(self, node: str) -> str:
+        for i, entry in enumerate(self._maneuvers):
+            if entry.get('node') == node:
+                if i + 1 < len(self._maneuvers):
+                    return self._maneuvers[i + 1].get('node', '')
+                return ''
+        return ''
 
     def _publish_command(self, command: str) -> None:
         self._last_command = command
