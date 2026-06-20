@@ -17,7 +17,8 @@ Subscribed topics
 Published topics
 ----------------
 /maze/nav_command     (std_msgs/String)  Current command:
-                                          'go', 'stop', 'left', 'right', 'straight'
+                                          'go', 'stop', or maneuver with node id
+                                          (e.g. 'left@I', 'straight@S').
 /maze/goal_reached    (std_msgs/String)  Published once with value 'true' on arrival.
 
 Parameters
@@ -150,7 +151,7 @@ class MazeNavigatorNode(DTROS if _USE_DTROS else object):
 
             # Keep publishing until the localisation reports that we reached
             # the expected next node on the path.
-            self._publish_command(maneuver)
+            self._publish_command(f'{maneuver}@{self._current_node}')
         else:
             self._publish_command('go')
 

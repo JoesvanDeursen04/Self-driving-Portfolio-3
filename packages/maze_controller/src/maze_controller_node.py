@@ -14,9 +14,9 @@ The controller combines two control loops:
    - Reads /maze/nav_command and adjusts behaviour:
      * 'go'       → normal lane-following at cruise speed
      * 'stop'     → zero wheel commands
-     * 'straight' → straight-through intersection (no turning)
-     * 'left'     → left-turn maneuver at intersection
-     * 'right'    → right-turn maneuver at intersection
+    * 'straight@<node>' → straight-through intersection at node
+    * 'left@<node>'     → left-turn maneuver at node
+    * 'right@<node>'    → right-turn maneuver at node
 
 Subscribed topics
 -----------------
@@ -99,7 +99,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         self._turning: bool = False
         self._turn_end_time: float = 0.0
         self._turn_direction: str = 'straight'
-        self._last_executed_maneuver = None
+        self._last_executed_node = None
         self._last_lane_pose_time: float = 0.0
         self._last_pid_time: float = 0.0
         self._last_lane_cmd = (0.0, 0.0)
@@ -154,7 +154,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         self._last_lane_cmd = self._compute_lane_command(correction)
 
     def _cb_nav_command(self, msg: String) -> None:
-        new_cmd = msg.data
+        new_cmd, node_id = self._parse_nav_command(msg.data)
         if new_cmd == 'stop':
             self._turning = False
             self._nav_command = 'stop'
@@ -164,24 +164,29 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
 
         if new_cmd == 'go':
             # Unlock maneuver latch when navigator confirms progression.
-            self._last_executed_maneuver = None
+            self._last_executed_node = None
             self._nav_command = 'go'
             return
+
+        execution_key = node_id if node_id else f'cmd:{new_cmd}'
 
         if (
             new_cmd in ('left', 'right', 'straight')
             and not self._turning
-            and new_cmd != self._last_executed_maneuver
+            and execution_key != self._last_executed_node
         ):
             # Start timed open-loop intersection maneuver
             self._turning = True
             self._turn_direction = new_cmd
-            self._last_executed_maneuver = new_cmd
+            self._last_executed_node = execution_key
             duration = self._straight_duration if new_cmd == 'straight' else self._turn_duration
             self._turn_end_time = rospy.get_time() + duration
             self._pid.reset()
             self._last_pid_time = 0.0
-            rospy.loginfo(f'[Controller] Starting {new_cmd} maneuver.')
+            if node_id:
+                rospy.loginfo(f'[Controller] Starting {new_cmd} maneuver at node {node_id}.')
+            else:
+                rospy.loginfo(f'[Controller] Starting {new_cmd} maneuver.')
             return
 
         if self._turning:
@@ -189,6 +194,21 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
 
         if new_cmd not in ('left', 'right', 'straight'):
             self._nav_command = new_cmd
+
+    @staticmethod
+    def _parse_nav_command(raw_cmd: str):
+        """
+        Parse nav command payload.
+
+        Supports both legacy format ('left') and node-tagged format
+        ('left@I'). Returns (command, node_id_or_empty_string).
+        """
+        text = (raw_cmd or '').strip()
+        if '@' not in text:
+            return text, ''
+
+        cmd, node_id = text.split('@', 1)
+        return cmd.strip(), node_id.strip()
 
     # ------------------------------------------------------------------
     # Control loop
