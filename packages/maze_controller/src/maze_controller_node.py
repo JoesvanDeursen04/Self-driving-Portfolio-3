@@ -99,7 +99,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         self._turning: bool = False
         self._turn_end_time: float = 0.0
         self._turn_direction: str = 'straight'
-        self._last_executed_maneuver: str = ''
+        self._last_executed_maneuver = None
         self._last_lane_pose_time: float = 0.0
         self._last_pid_time: float = 0.0
         self._last_lane_cmd = (0.0, 0.0)
@@ -164,7 +164,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
 
         if new_cmd == 'go':
             # Unlock maneuver latch when navigator confirms progression.
-            self._last_executed_maneuver = ''
+            self._last_executed_maneuver = None
             self._nav_command = 'go'
             return
 
@@ -189,8 +189,6 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
 
         if new_cmd not in ('left', 'right', 'straight'):
             self._nav_command = new_cmd
-            if new_cmd == 'go':
-                pass  # no state change needed
 
     # ------------------------------------------------------------------
     # Control loop
