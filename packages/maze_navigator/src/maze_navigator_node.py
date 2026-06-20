@@ -63,6 +63,7 @@ class MazeNavigatorNode(DTROS if _USE_DTROS else object):
         # State
         self._maneuvers: list = []          # [{node, maneuver}, ...]
         self._current_node: str = ''
+        self._prev_node: str = ''
         self._goal_reached: bool = False
         self._last_command: str = 'stop'
 
@@ -95,6 +96,7 @@ class MazeNavigatorNode(DTROS if _USE_DTROS else object):
         new_node = msg.data
         if new_node != self._current_node:
             rospy.loginfo(f'[Navigator] Now at node: {new_node}')
+            self._prev_node = self._current_node
         self._current_node = new_node
 
         # Check for goal
@@ -125,12 +127,11 @@ class MazeNavigatorNode(DTROS if _USE_DTROS else object):
         if maneuver == 'stop':
             self._publish_command('stop')
         elif maneuver in ('left', 'right', 'straight'):
-            # At an intersection: issue the turn command once, then revert to 'go'
-            if self._last_command != maneuver:
+            # Keep publishing the maneuver while we remain on this node.
+            # This avoids single-packet command loss on noisy Wi-Fi.
+            if self._current_node != self._prev_node and self._last_command != maneuver:
                 rospy.loginfo(f'[Navigator] Intersection at {self._current_node}: {maneuver}')
-                self._publish_command(maneuver)
-            else:
-                self._publish_command('go')
+            self._publish_command(maneuver)
         else:
             self._publish_command('go')
 
