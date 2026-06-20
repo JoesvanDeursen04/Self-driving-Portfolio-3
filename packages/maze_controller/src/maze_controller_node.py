@@ -36,10 +36,10 @@ Parameters
 ~pid_ki            (float, default 0.05)  PID integral gain
 ~pid_kd            (float, default 0.5)   PID derivative gain
 ~turn_duration_s   (float, default 1.8)   Duration of a left/right turn
+~lane_timeout_s    (float, default 0.25)  Max age of lane data before stopping
 """
 
 import rospy
-import time
 import sys
 import os
 from std_msgs.msg import String
@@ -82,6 +82,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         self._v_cruise = rospy.get_param('~v_cruise', 0.20)
         self._v_turn = rospy.get_param('~v_turn', 0.15)
         self._turn_duration = rospy.get_param('~turn_duration_s', 1.8)
+        self._lane_timeout = rospy.get_param('~lane_timeout_s', 0.25)
 
         # PID setup
         kp = rospy.get_param('~pid_kp', 5.0)
@@ -93,10 +94,12 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         # State
         self._nav_command: str = 'stop'
         self._lane_error: float = 0.0   # lateral offset (metres, + = too far right)
-        self._last_time: float = rospy.get_time()
         self._turning: bool = False
         self._turn_end_time: float = 0.0
         self._turn_direction: str = 'straight'
+        self._last_lane_pose_time: float = 0.0
+        self._last_pid_time: float = 0.0
+        self._last_lane_cmd = (0.0, 0.0)
 
         # Publisher
         if _HAS_DT_MSGS:
@@ -129,6 +132,23 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         # Combine lateral offset and heading error into a single error signal.
         # Weighting: lateral offset dominates, heading adds stability.
         self._lane_error = msg.d + 0.15 * msg.phi
+        now = rospy.get_time()
+        self._last_lane_pose_time = now
+
+        # Only compute steering when lane following is active.
+        if self._turning or self._nav_command not in ('go', 'straight'):
+            return
+
+        if self._last_pid_time <= 0.0:
+            dt = 0.05
+        else:
+            dt = now - self._last_pid_time
+            if dt <= 0.0:
+                return
+
+        self._last_pid_time = now
+        correction = self._pid.compute(self._lane_error, dt)
+        self._last_lane_cmd = self._compute_lane_command(correction)
 
     def _cb_nav_command(self, msg: String) -> None:
         new_cmd = msg.data
@@ -151,8 +171,6 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
     # ------------------------------------------------------------------
     def _control_loop(self, _event) -> None:
         now = rospy.get_time()
-        dt = now - self._last_time
-        self._last_time = now
 
         # Finish timed intersection turn
         if self._turning:
@@ -160,6 +178,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
                 self._turning = False
                 self._nav_command = 'go'
                 self._pid.reset()
+                self._last_pid_time = 0.0
                 rospy.loginfo('[Controller] Turn complete – resuming lane following.')
             else:
                 self._execute_turn(self._turn_direction)
@@ -169,19 +188,22 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         if self._nav_command == 'stop':
             self._send_wheel_cmd(0.0, 0.0)
         elif self._nav_command in ('go', 'straight'):
-            self._lane_follow(dt)
+            lane_age = now - self._last_lane_pose_time if self._last_lane_pose_time > 0.0 else float('inf')
+            if lane_age <= self._lane_timeout:
+                self._send_wheel_cmd(*self._last_lane_cmd)
+            else:
+                self._send_wheel_cmd(0.0, 0.0)
+                rospy.logwarn_throttle(
+                    1.0,
+                    '[Controller] Lane pose timeout; stopping until fresh data arrives.')
         else:
             self._send_wheel_cmd(0.0, 0.0)
 
     # ------------------------------------------------------------------
     # Lane following
     # ------------------------------------------------------------------
-    def _lane_follow(self, dt: float) -> None:
-        """Compute PID correction and drive forward."""
-        if dt <= 0:
-            return
-        correction = self._pid.compute(self._lane_error, dt)
-
+    def _compute_lane_command(self, correction: float):
+        """Convert PID correction into clamped left/right wheel speeds."""
         # Differential drive: steer by adjusting left/right wheel speeds.
         # Positive error = too far right → increase left, decrease right.
         v_left = self._v_cruise + correction
@@ -191,7 +213,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         v_left = max(-MAX_WHEEL_SPEED, min(MAX_WHEEL_SPEED, v_left))
         v_right = max(-MAX_WHEEL_SPEED, min(MAX_WHEEL_SPEED, v_right))
 
-        self._send_wheel_cmd(v_left, v_right)
+        return v_left, v_right
 
     # ------------------------------------------------------------------
     # Intersection turns

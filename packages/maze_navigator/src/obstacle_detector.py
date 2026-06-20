@@ -57,6 +57,9 @@ CLOSE_REGION_FRACTION = 0.50
 DUCKIE_HSV_LOWER = np.array([20, 100, 100])
 DUCKIE_HSV_UPPER = np.array([35, 255, 255])
 MIN_BLOB_AREA = 1500
+MIN_CONTOUR_FILL = 0.30
+MIN_ASPECT_RATIO = 0.45
+MAX_ASPECT_RATIO = 2.20
 
 
 class ObstacleDetector:
@@ -241,4 +244,24 @@ class ObstacleDetector:
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         contours, _ = cv2.findContours(
             mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        return any(cv2.contourArea(c) >= MIN_BLOB_AREA for c in contours)
+
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area < MIN_BLOB_AREA:
+                continue
+
+            x, y, bw, bh = cv2.boundingRect(contour)
+            if bw <= 0 or bh <= 0:
+                continue
+
+            aspect = float(bw) / float(bh)
+            if aspect < MIN_ASPECT_RATIO or aspect > MAX_ASPECT_RATIO:
+                continue
+
+            fill_ratio = area / float(bw * bh)
+            if fill_ratio < MIN_CONTOUR_FILL:
+                continue
+
+            return True
+
+        return False
