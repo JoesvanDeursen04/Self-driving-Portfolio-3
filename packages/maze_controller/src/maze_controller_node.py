@@ -99,6 +99,7 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
         self._turning: bool = False
         self._turn_end_time: float = 0.0
         self._turn_direction: str = 'straight'
+        self._last_executed_maneuver: str = ''
         self._last_lane_pose_time: float = 0.0
         self._last_pid_time: float = 0.0
         self._last_lane_cmd = (0.0, 0.0)
@@ -161,10 +162,21 @@ class MazeControllerNode(DTROS if _USE_DTROS else object):
             self._last_pid_time = 0.0
             return
 
-        if new_cmd in ('left', 'right', 'straight') and not self._turning:
+        if new_cmd == 'go':
+            # Unlock maneuver latch when navigator confirms progression.
+            self._last_executed_maneuver = ''
+            self._nav_command = 'go'
+            return
+
+        if (
+            new_cmd in ('left', 'right', 'straight')
+            and not self._turning
+            and new_cmd != self._last_executed_maneuver
+        ):
             # Start timed open-loop intersection maneuver
             self._turning = True
             self._turn_direction = new_cmd
+            self._last_executed_maneuver = new_cmd
             duration = self._straight_duration if new_cmd == 'straight' else self._turn_duration
             self._turn_end_time = rospy.get_time() + duration
             self._pid.reset()
