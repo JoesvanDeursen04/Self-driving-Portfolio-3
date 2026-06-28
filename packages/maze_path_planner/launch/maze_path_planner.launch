@@ -1,8 +1,8 @@
 <launch>
   <!-- Maze Path Planner Node -->
   <arg name="veh"        default="$(env VEHICLE_NAME)" />
-  <arg name="start_node" default="S" />
-  <arg name="goal_node"  default="T" />
+  <arg name="start_node" default="A" />
+  <arg name="goal_node"  default="E" />
   <arg name="map_file"   default="$(optenv DUCKIE_MAZE_MAP /data/assets/maze_map.yaml)" />
 
   <node name="maze_path_planner_node"
