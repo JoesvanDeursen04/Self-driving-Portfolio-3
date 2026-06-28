@@ -20,8 +20,8 @@ export DUCKIE_MAZE_MAP=${DUCKIE_MAZE_MAP:-${DT_REPO_PATH}/assets/maze_map.yaml}
 # Launch the full maze navigation stack
 dt-exec roslaunch maze_path_planner maze_navigation.launch \
   veh:=${VEHICLE_NAME} \
-  start_node:=${START_NODE:-S} \
-  goal_node:=${GOAL_NODE:-T}
+  start_node:=${START_NODE:-A} \
+  goal_node:=${GOAL_NODE:-E}
 
 
 # ----------------------------------------------------------------------------

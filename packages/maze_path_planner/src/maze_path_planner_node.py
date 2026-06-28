@@ -13,8 +13,8 @@ Published topics
 
 Parameters
 ----------
-~start_node   (str, default 'S')  Start node name.
-~goal_node    (str, default 'T')  Goal node name.
+~start_node   (str, default 'A')  Start node name.
+~goal_node    (str, default 'E')  Goal node name.
 """
 
 import json
@@ -53,8 +53,8 @@ class MazePathPlannerNode(DTROS if _USE_DTROS else object):
             rospy.init_node(node_name)
 
         # Parameters
-        self._start = rospy.get_param('~start_node', 'S')
-        self._goal = rospy.get_param('~goal_node', 'T')
+        self._start = rospy.get_param('~start_node', 'A')
+        self._goal = rospy.get_param('~goal_node', 'E')
         self._map_file = rospy.get_param(
             '~map_file',
             os.environ.get('DUCKIE_MAZE_MAP', '/data/assets/maze_map.yaml'),
